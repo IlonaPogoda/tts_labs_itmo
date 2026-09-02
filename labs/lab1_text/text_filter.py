@@ -8,7 +8,7 @@ Run as a script to score yourself on the development set::
 import csv
 
 import pandas as pd
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 DEV_SET_PATH = "data/dev_sentences.csv"
 
@@ -32,7 +32,7 @@ class TextFilter:
         """
 
         # Here goes your initialization logic
-
+  
         pass
 
     def filter(self, text: str) -> int:
@@ -48,7 +48,7 @@ class TextFilter:
             differently from how it is written, and the utterance should be dropped.
         """
 
-        # Here goes your normalisation logic
+        # Here goes your filterting logic
 
         return 1
 
@@ -61,6 +61,8 @@ if __name__ == "__main__":
     )
 
     dev_files["predicted"] = dev_files["text"].apply(textfilter.filter)
-
+    
+    prc = precision_score(dev_files["is_normalized"], dev_files["predicted"])
+    rec = recall_score(dev_files["is_normalized"], dev_files["predicted"])
     f1 = f1_score(dev_files["is_normalized"], dev_files["predicted"])
-    print(f"F1 Score is {f1:.4f}")
+    print(f"F1 Score is {f1:.4f}, Precision is {prc:.4f}, Recall is {rec:.4f}")

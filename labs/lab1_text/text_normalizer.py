@@ -22,7 +22,7 @@ class TextNormalizer:
 
     Example:
         >>> normalizer = TextNormalizer()
-        >>> normalizer.normalize("Расстреливать надо таких писателей!..")
+        >>> normalizer.normalize("Расстреливать надо таких писателей!.")
         'Расстреливать надо таких писателей!'
     """
 
@@ -57,6 +57,6 @@ class TextNormalizer:
             and compare unequal.
         """
 
-        # Here goes your normalisation logic
+        # Here goes your normalization logic
 
         return text
