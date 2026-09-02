@@ -125,3 +125,7 @@
 | F1-мера классификации нормализованных данных на *закрытом* множестве | ≥ 0,85 |
 | Сохранено фраз в отфильтрованном корпусе | ≥ 16 000 |
 | Все строки -- ровно три колонки, кодировка UTF-8, нормализация NFC | обязательно |
+
+
+## Вдохновляющие ресурсы
+- Text Normalization Challenge - Russian Language, Kaggle  ([link](https://www.kaggle.com/competitions/text-normalization-challenge-russian-language/overview)).
