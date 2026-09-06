@@ -31,7 +31,7 @@ class TextFilter:
         Compiled regular expressions, abbreviation and contraction dictionaries, a
         trained model — anything that should not be rebuilt for every utterance.
         """
-
+        # Создание регулярных выражений для проверки текста
         # 1. Цифры (количественные, порядковые числительные, номера моделей)
         self.re_digits = re.compile(r"\d")
 

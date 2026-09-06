@@ -83,28 +83,28 @@ class TextNormalizer:
         if not text or not isinstance(text, str):
             return ""
 
-        # Шаг 1: Нормализация Unicode до формы NFC
+        # 1. Нормализация Unicode до формы NFC
         # Не удаляет U+0301 (combining acute accent)
         text = unicodedata.normalize("NFC", text)
 
-        # Шаг 2: Удаление технического мусора (*, /, <, >)
+        # 2. Удаление технического мусора (*, /, <, >)
         text = self.re_tech_trash.sub("", text)
 
-        # Шаг 3: Унификация дефисов и тире
+        # 3. Унификация дефисов и тире
         text = self.re_hyphens.sub("-", text)
         text = self.re_dashes.sub("—", text)
 
-        # Шаг 4: Нормализация пунктуационных аномалий
+        # 4. Нормализация пунктуационных аномалий
         text = self.re_broken_excl.sub("!", text)
         text = self.re_broken_quest.sub("?", text)
         text = self.re_multi_dots.sub("…", text)
 
-        # Шаг 5: Унификация кавычек к стандартным (« » или " ")
+        # 5. Унификация кавычек к стандартным (« » или " ")
         text = self.re_quotes_open.sub("«", text)
         text = self.re_quotes_close.sub("»", text)
         text = self.re_single_quotes.sub("'", text)
 
-        # Шаг 6: Нормализация пробелов
+        # 6. Нормализация пробелов
         text = self.re_non_breaking_spaces.sub(" ", text)
         text = self.re_spaces_before_punct.sub(r"\1", text)
         text = self.re_multiple_spaces.sub(" ", text)
