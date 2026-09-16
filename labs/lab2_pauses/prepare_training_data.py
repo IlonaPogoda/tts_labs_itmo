@@ -41,23 +41,24 @@ def read_text_grids(ruslan, align_root):
 
 def align_text_and_textgrid(tokens, text):
     raw_tokens = []
-    text = text.lower()
+    text_lower = text.lower()
     previous_word = -1
     for t, d, i in tokens[['label', 'duration', 'id']].values:
         if t == '': # Empty, SIL token
             raw_tokens.append('<SIL>')
             continue
-        splits = text.split(t, maxsplit=1)
+        splits = text_lower.split(t, maxsplit=1)
         if len(splits)==1: # Does not found content!
             print(f'Error aligning f{i}!')
             print(t, text, tokens)
             return tokens 
         if previous_word == -1: 
-            raw_tokens.append(splits[0].strip()+t)
+            raw_tokens.append(text[:len(splits[0]+t)].strip())
         else:
-            raw_tokens[previous_word] += splits[0].strip()
-            raw_tokens.append(t)
-        text = splits[1]
+            raw_tokens[previous_word] += text[:len(splits[0])].strip()
+            raw_tokens.append(text[len(splits[0]):len(splits[0] + t)])
+        text_lower = splits[1]
+        text = text[len(splits[0] + t):]
         previous_word = len(raw_tokens)-1
     if len(text) and (previous_word>=0):
         raw_tokens[previous_word] += text.strip()
@@ -91,7 +92,7 @@ def add_pause_labels(align):
     
 
 def main():
-    ruslan = pd.read_csv(f'{RUSLAN_META}', sep='|', names=['id', 'raw', 'nrm'])
+    ruslan = pd.read_csv(f'{RUSLAN_META}', sep='|', names=['id', 'raw', 'nrm'], quoting=csv.QUOTE_NONE)
     word_df, _, _ = read_text_grids(ruslan, ALIGN_DIR)
 
     
@@ -118,7 +119,6 @@ def main():
     
     pause_df = pause_df[pause_df.label_raw!='<SIL>'] # Removing pause tokens -- all information about pauses is in word tokens now
     pause_df = pause_df[pause_df.label_raw.notna()] # Removing all the files, who failed to be aligned
-    pause_df = pause_df[((pause_df.pause_duration>0.1) | (~pause_df.is_pause_after))] # Removing all the pauses smaller than 100 ms
     pause_df = pause_df.reset_index(drop=True) # Reseting the index after filtering
     
     pause_df.is_last_word = pause_df.is_last_word.astype(int) # Casting bool fields into int

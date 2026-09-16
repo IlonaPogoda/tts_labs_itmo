@@ -4,7 +4,7 @@ import numpy as np
 import tqdm
 import pandas as pd
 from sklearn.metrics import f1_score, precision_score, recall_score
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
 
 PAUSE_PREDICTOR_DATA = 'data/RUSLAN_pause_metadata.csv'
 
@@ -43,8 +43,8 @@ def calc_metrics(df):
     prc = precision_score(df.is_pause_after, df.is_pause_hat)
     f1 = f1_score(df.is_pause_after, df.is_pause_hat)
 
-    mse = mean_squared_error(df[(df.is_pause_after==1) | (df.is_pause_hat==1)].pause_duration, df[(df.is_pause_after==1) | (df.is_pause_hat==1)].pause_duration_hat)
-    print(f'PRC: {prc}, REC: {rec}, F1: {f1}; MSE: {mse};')
+    mae = mean_absolute_error(df[(df.is_pause_after==1) & (df.is_pause_hat==1)].pause_duration, df[(df.is_pause_after==1) & (df.is_pause_hat==1)].pause_duration_hat)
+    print(f'PRC: {prc}, REC: {rec}, F1: {f1}; MAE: {mae};')
 
 def test_pause_predictor():
     pause_df = pd.read_csv(PAUSE_PREDICTOR_DATA, sep='|', quoting=csv.QUOTE_NONE)
