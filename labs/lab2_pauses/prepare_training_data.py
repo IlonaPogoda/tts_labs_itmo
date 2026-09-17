@@ -1,4 +1,16 @@
-### Preparing traning and testing data for pause predictor
+"""Build pause predictor training data — lab 2.
+
+Joins the lab 1 normalized metadata with the MFA word alignment and writes one row per
+word to `data/RUSLAN_pause_metadata.csv`::
+
+    id|label|label_raw|duration|is_last_word|is_pause_after|pause_duration|set
+
+Utterances whose id ends in 0 or 5 go to `test`, the rest to `train`.
+
+Run from the lab directory::
+
+    python prepare_training_data.py
+"""
 import csv
 import glob
 import numpy as np
@@ -11,7 +23,18 @@ RUSLAN_META = '../../data/metadata_RUSLAN_22200_normalized.csv'
 ALIGN_DIR = '../../data/RUSLAN_align_v2/'
 RESULT_PATH = 'data/RUSLAN_pause_metadata.csv'
 
-def read_text_grids(ruslan, align_root):   
+def read_text_grids(ruslan: pd.DataFrame, align_root: str) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:   
+    """Read the MFA TextGrid of every utterance in `ruslan`.
+
+    Args:
+        ruslan: Metadata with `id` and `nrm` columns.
+        align_root: Directory with `{id}.TextGrid` files.
+
+    Returns:
+        Word intervals (`label`, `duration`, `id`; silence has label ``""``), phone
+        intervals (same columns; silence is ``"<SIL>"``), and one space-joined phone
+        string per metadata row (``""`` when the TextGrid is missing).
+    """
     word_docs = []
     phn_docs = []
     phoneme_sequences = []
@@ -39,7 +62,21 @@ def read_text_grids(ruslan, align_root):
     return word_df, phn_df, phoneme_sequences
 
 
-def align_text_and_textgrid(tokens, text):
+def align_text_and_textgrid(tokens: pd.DataFrame, text: str) -> pd.DataFrame:
+    """Attach the original text form of each aligned word as `label_raw`.
+
+    MFA labels are lowercase and carry no punctuation. `label_raw` restores the case
+    and appends the punctuation that follows each word; text before the first word goes
+    to the first word. Silence intervals get ``"<SIL>"``.
+
+    Args:
+        tokens: Word intervals of one utterance, as returned by :func:`read_text_grids`.
+        text: Normalized text of the same utterance.
+
+    Returns:
+        `tokens` with a `label_raw` column, or `tokens` unchanged if a word is not
+        found in `text` — such utterances are dropped later.
+    """
     raw_tokens = []
     text_lower = text.lower()
     previous_word = -1
@@ -65,7 +102,18 @@ def align_text_and_textgrid(tokens, text):
     tokens['label_raw'] = raw_tokens
     return tokens
 
-def add_pause_labels(align):
+def add_pause_labels(align: pd.DataFrame) -> pd.DataFrame:
+    """Mark which words are followed by a pause, and for how long.
+
+    Adds `is_last_word`, `is_pause_after` and `pause_duration` (seconds). Silence rows
+    themselves get ``False`` / ``0.0``; silence before the first word is ignored.
+
+    Args:
+        align: Word intervals of one utterance, in order.
+
+    Returns:
+        `align` with the three label columns.
+    """
     is_last_word = []
     pause_after = []
     pause_duration = []
@@ -91,8 +139,9 @@ def add_pause_labels(align):
     return align
     
 
-def main():
-    ruslan = pd.read_csv(f'{RUSLAN_META}', sep='|', names=['id', 'raw', 'nrm'], quoting=csv.QUOTE_NONE)
+def main() -> None:
+    """Read metadata and alignments, label pauses, split into train/test and save."""
+    ruslan =pd.read_csv(f'{RUSLAN_META}', sep='|', names=['id', 'raw', 'nrm'], quoting=csv.QUOTE_NONE)
     word_df, _, _ = read_text_grids(ruslan, ALIGN_DIR)
 
     
