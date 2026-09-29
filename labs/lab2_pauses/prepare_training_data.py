@@ -15,13 +15,20 @@ import csv
 import glob
 import numpy as np
 import os
+from pathlib import Path
 import pandas as pd
 from praatio import textgrid
 import tqdm
 
-RUSLAN_META = '../../data/metadata_RUSLAN_22200_normalized.csv'
-ALIGN_DIR = '../../data/RUSLAN_align_v2/'
-RESULT_PATH = 'data/RUSLAN_pause_metadata.csv'
+LAB_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = LAB_DIR.parent.parent
+RUSLAN_META = PROJECT_ROOT / 'data' / 'metadata_RUSLAN_22200_normalized.csv'
+ALIGN_CANDIDATES = [
+    PROJECT_ROOT / 'data' / 'RUSLAN_22050_align_v2',
+    PROJECT_ROOT / 'data' / 'RUSLAN_align_v2',
+]
+ALIGN_DIR = next((p for p in ALIGN_CANDIDATES if p.exists()), ALIGN_CANDIDATES[0])
+RESULT_PATH = LAB_DIR / 'data' / 'RUSLAN_pause_metadata.csv'
 
 def read_text_grids(ruslan: pd.DataFrame, align_root: str) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:   
     """Read the MFA TextGrid of every utterance in `ruslan`.
@@ -38,11 +45,13 @@ def read_text_grids(ruslan: pd.DataFrame, align_root: str) -> tuple[pd.DataFrame
     word_docs = []
     phn_docs = []
     phoneme_sequences = []
+    missing = 0
     for wave_id, text in tqdm.tqdm(ruslan[['id', 'nrm']].values):
         try:
             tg = textgrid.openTextgrid(os.path.join(align_root, wave_id+'.TextGrid'), True)
-        except:
+        except Exception:
             phoneme_sequences.append('')
+            missing += 1
             continue
         words, phones = tg.tiers
 
@@ -59,6 +68,7 @@ def read_text_grids(ruslan: pd.DataFrame, align_root: str) -> tuple[pd.DataFrame
                 phn_docs.append({'label':i.label, 'duration':i.end-i.start, 'id': wave_id})
     word_df = pd.DataFrame(word_docs)
     phn_df = pd.DataFrame(phn_docs)
+    print(f'Missing/broken TextGrid files: {missing}')
     return word_df, phn_df, phoneme_sequences
 
 
@@ -77,6 +87,7 @@ def align_text_and_textgrid(tokens: pd.DataFrame, text: str) -> pd.DataFrame:
         `tokens` with a `label_raw` column, or `tokens` unchanged if a word is not
         found in `text` — such utterances are dropped later.
     """
+    tokens = tokens.copy()
     raw_tokens = []
     text_lower = text.lower()
     previous_word = -1
@@ -114,6 +125,7 @@ def add_pause_labels(align: pd.DataFrame) -> pd.DataFrame:
     Returns:
         `align` with the three label columns.
     """
+    align = align.copy()
     is_last_word = []
     pause_after = []
     pause_duration = []
@@ -122,7 +134,7 @@ def add_pause_labels(align: pd.DataFrame) -> pd.DataFrame:
         if label == '':
             if last_word>=0:
                 pause_after[last_word] = True
-                pause_duration[last_word] = dur
+                pause_duration[last_word] = float(dur)
             pause_after.append(False)
             pause_duration.append(0.)
             is_last_word.append(False)
@@ -141,8 +153,18 @@ def add_pause_labels(align: pd.DataFrame) -> pd.DataFrame:
 
 def main() -> None:
     """Read metadata and alignments, label pauses, split into train/test and save."""
+    print(f'Metadata: {RUSLAN_META}')
+    print(f'Alignment: {ALIGN_DIR}')
+    print(f'Output: {RESULT_PATH}')
+    if not RUSLAN_META.exists():
+        raise FileNotFoundError(RUSLAN_META)
+    if not ALIGN_DIR.exists():
+        raise FileNotFoundError('Alignment directory not found. Checked:\n' + '\n'.join(str(p) for p in ALIGN_CANDIDATES))
+
     ruslan =pd.read_csv(f'{RUSLAN_META}', sep='|', names=['id', 'raw', 'nrm'], quoting=csv.QUOTE_NONE)
     word_df, _, _ = read_text_grids(ruslan, ALIGN_DIR)
+    if word_df.empty:
+        raise RuntimeError('No TextGrid words were read. Check ALIGN_DIR.')
 
     
     #Additional normalization to ensure good alignment
@@ -161,7 +183,7 @@ def main() -> None:
         aligns.append(align_text_and_textgrid(tokens, n))
 
     # Creating labels for pause predictor training
-    aligns = [add_pause_labels(a) for a in aligns]
+    aligns = [add_pause_labels(a) for a in aligns if len(a)]
 
     # Creating dataframe
     pause_df = pd.concat(aligns)
@@ -177,7 +199,17 @@ def main() -> None:
     # Splitting into train and test deterministically: All the files with index, ending with 0 or 5 is considered test
     pause_df['set'] = 'train'
     pause_df.loc[pause_df.id.str.split('_', expand=True)[0].astype(int)%5==0, 'set'] = 'test'
+    RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
     pause_df.to_csv(f'{RESULT_PATH}', sep='|', index=False, header=True, quoting=csv.QUOTE_NONE)
+
+    internal = pause_df[pause_df.is_last_word == 0]
+    print('\nPrepared dataset')
+    print('rows:', len(pause_df))
+    print('utterances:', pause_df.id.nunique())
+    print('internal tokens:', len(internal))
+    print('positive pauses:', int(internal.is_pause_after.sum()))
+    print('pause rate:', float(internal.is_pause_after.mean()))
+    print(pause_df.set.value_counts())
     
 if __name__=='__main__':
     main()
